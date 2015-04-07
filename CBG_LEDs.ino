@@ -45,8 +45,6 @@
 #include "chase.h"
 
 #define DMX_ADDR        1
-#define LEDS_PER_STRIP  120
-#define NUM_STRIPS      16
 
 #if (NUM_STRIPS % 8) != 0
 #error Number of Strips must be a multiple of 8.
@@ -127,32 +125,63 @@ void loop()
 
 void process(DmxData *data)
 {
-  static FXProc fx1;
-  static FXProc fx2;
+  static FXProc fx[2];
   
   FixedPoint master = data->master;
   master /= 255;
-  FixedPoint mix1 = data->mix;
-  mix1 /= 255;
-  FixedPoint mix2((int16_t)1);
-  mix2 -= mix1;
-  mix1 *= master;
-  mix2 *= master;
+  FixedPoint mix[2] = { FixedPoint((int16_t)data->mix), FixedPoint((int16_t)1) };
+  mix[0] /= 255;
+  mix[1] -= mix[0];
   
-  chaseTri(data->fx1, mix1, fx1);
-  chaseSquare(data->fx2, mix2, fx2);
+  for(int i = 0; i < 2; ++i)
+  {
+    mix[i] *= master;
+    if (isChaseTri(data->fx[i].mode))
+      chaseTri(data->fx[i], mix[i], fx[i]);
+    else if (isChaseSquare(data->fx[i].mode))
+      chaseSquare(data->fx[i], mix[i], fx[i]);
+    else if (isChaseRainbow(data->fx[i].mode))
+      chaseRainbow(data->fx[i], mix[i], fx[i]);
+    else
+    {
+      // Default FX is Blackout
+      for (int x = 0; x < 256; ++x)
+        fx[i].color[x] = ColorFP(0,0,0);
+      for (int x = 0; x < NUM_STRIPS; ++x)
+        fx[i].startPos[x] = 0;
+      fx[i].revPerLeds = LEDS_PER_STRIP;
+      fx[i].revStrip = false;
+      fx[i].inc = 0;
+    }
+  }
   
   for(int x = 0; x < NUM_STRIPS; ++x)
   {
-    fx1.pos = fx1.startPos + fx1.stripOff * x;
-    fx2.pos = fx2.startPos + fx1.stripOff * x;
+    fx[0].pos = fx[0].startPos[x];
+    fx[1].pos = fx[1].startPos[x];
+    fx[0].revAt = fx[0].revPerLeds;
+    fx[1].revAt = fx[1].revPerLeds;
     for(int y = 0; y < LEDS_PER_STRIP; ++y)
     {
-      ColorFP out = fx1.color[uint8_t(fx1.pos)] + fx2.color[uint8_t(fx2.pos)];
+      ColorFP out = fx[0].color[uint8_t(fx[0].pos)] + fx[1].color[uint8_t(fx[1].pos)];
       leds.setPixel(strip(x,y), offset(x,y), out.red, out.green, out.blue);
-      fx1.pos += fx1.inc;
-      fx2.pos += fx2.inc;
+      fx[0].pos += fx[0].inc;
+      fx[1].pos += fx[1].inc;
+      if (y >= fx[0].revAt)
+      {
+        fx[0].inc *= -1;
+        fx[0].revAt += fx[0].revPerLeds;
+      }
+      if (y >= fx[1].revAt)
+      {
+        fx[1].inc *= -1;
+        fx[1].revAt += fx[1].revPerLeds;
+      }
     }
+    if (fx[0].revStrip)
+      fx[0].inc *= -1;
+    if (fx[1].revStrip)
+      fx[1].inc *= -1;
   }
 }
 

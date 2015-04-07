@@ -36,6 +36,20 @@
 
 #include "fixedPoint.h"
 
+#define NUM_STRIPS          24
+#define LEDS_PER_STRIP      120
+
+#define MODE_STRIP_REV      0x08
+#define MODE_CEMETRIC       0x10
+#define MODE_CHASE_MASK     0xE0
+#define MODE_CHASE_TRI      0xA0
+#define MODE_CHASE_SQUARE   0xC0
+#define MODE_CHASE_RAINBOW  0xE0
+
+inline bool isChaseTri(uint8_t mode)     { return ((mode & MODE_CHASE_MASK) == MODE_CHASE_TRI); }
+inline bool isChaseSquare(uint8_t mode)  { return ((mode & MODE_CHASE_MASK) == MODE_CHASE_SQUARE); }
+inline bool isChaseRainbow(uint8_t mode) { return ((mode & MODE_CHASE_MASK) == MODE_CHASE_RAINBOW); }
+
 typedef struct __attribute__((packed))
 {
   uint8_t  cyan;
@@ -58,15 +72,15 @@ typedef struct __attribute__((packed))
 {
   uint8_t master;
   uint8_t mix;
-  FX      fx1;
-  FX      fx2;
+  FX      fx[2];
 } DmxData;
 
 class ColorFP
 {
 public:
-  ColorFP() {}
+  ColorFP() : red((int16_t)0), green((int16_t)0), blue((int16_t)0) {}
   ColorFP(const DMX_Color &c) : red((int16_t)(255 - c.cyan)), green((int16_t)(255 - c.magenta)), blue((int16_t)(255 - c.yellow)) {}
+  ColorFP(int16_t r, int16_t g, int16_t b) : red(r), green(g), blue(b) {}
   
   int color() { return OctoWS2811::color(uint8_t(red), uint8_t(green), uint8_t(blue)); }
   

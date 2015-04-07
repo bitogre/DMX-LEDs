@@ -40,27 +40,49 @@
 class FXProc
 {
 public:
-  uint8_t startPos;
-  uint8_t stripOff;
+  uint8_t startPos[NUM_STRIPS];
   FixedPoint pos;
   FixedPoint inc;
   ColorFP color[256];
+  uint16_t revPerLeds;
+  uint16_t revAt;
+  bool revStrip;
 };
+
+void chase(FX &setting, FXProc &out)
+{
+  if (setting.mode & MODE_CEMETRIC)
+  {
+    for (int x = 0; x < (NUM_STRIPS/2); ++x)
+      out.startPos[(NUM_STRIPS/2) + x] = out.startPos[(NUM_STRIPS/2) - 1 - x] = setting.pos + x * setting.off;
+  }
+  else
+  {
+    for (int x = 0; x < NUM_STRIPS; ++x)
+      out.startPos[x] = setting.pos + x * setting.off;
+  }
+
+  out.inc = 256;
+  out.inc /= 2 + setting.period;
+  out.revPerLeds = LEDS_PER_STRIP / ((setting.mode & 0x07) + 1);
+  out.revAt = out.revPerLeds;
+  
+  if (setting.mode & MODE_STRIP_REV)
+    out.revStrip = (setting.mode & 0x01) ? false : true;
+  else
+    out.revStrip = (setting.mode & 0x01) ? true : false;
+}
 
 void chaseTri(FX &setting, FixedPoint &level, FXProc &out)  
 {
+  chase(setting, out);
+  
   ColorFP current(setting.pri);
   ColorFP delta(setting.sec);
   delta = (delta - current) * level;
   current *= level;
   ColorFP loopDelta(delta);
   loopDelta /= setting.dutyCycle + 1;
-  
-  out.startPos = setting.pos;
-  out.stripOff = setting.off;
-  
-  out.inc = 256;
-  out.inc /= 2 + setting.period;
   
   int i = 0;
   while(i < setting.dutyCycle)
@@ -79,16 +101,12 @@ void chaseTri(FX &setting, FixedPoint &level, FXProc &out)
 
 void chaseSquare(FX &setting, FixedPoint &level, FXProc &out)  
 {
+  chase(setting, out);
+  
   ColorFP priColor(setting.pri);
   ColorFP secColor(setting.sec);
   priColor *= level;
   secColor *= level;
-  
-  out.startPos = setting.pos;
-  out.stripOff = setting.off;
-  
-  out.inc = 256;
-  out.inc /= 2 + setting.period;
   
   int i = 0;
   while(i < setting.dutyCycle)
@@ -96,6 +114,70 @@ void chaseSquare(FX &setting, FixedPoint &level, FXProc &out)
 
   while(i <= 255)
     out.color[i++] = secColor;
+}
+
+void chaseRainbow(FX &setting, FixedPoint &level, FXProc &out)  
+{
+  chase(setting, out);
+  
+  ColorFP current;
+  FixedPoint delta(level);
+  delta /= 6;
+  
+  int i = 0;
+  current.red   = level;
+  current.green = 0;
+  current.blue  = 0;
+  while(i < (1*256/6))
+  {
+    out.color[i++] = current;
+    current.green += delta;
+  }
+
+  current.red   = level;
+  current.green = level;
+  current.blue  = 0;
+  while(i < (2*256/6))
+  {
+    out.color[i++] = current;
+    current.red -= delta;
+  }
+
+  current.red   = 0;
+  current.green = level;
+  current.blue  = 0;
+  while(i < (3*256/6))
+  {
+    out.color[i++] = current;
+    current.blue += delta;
+  }
+
+  current.red   = 0;
+  current.green = level;
+  current.blue  = level;
+  while(i < (4*256/6))
+  {
+    out.color[i++] = current;
+    current.green -= delta;
+  }
+
+  current.red   = 0;
+  current.green = 0;
+  current.blue  = level;
+  while(i < (5*256/6))
+  {
+    out.color[i++] = current;
+    current.red += delta;
+  }
+
+  current.red   = level;
+  current.green = 0;
+  current.blue  = level;
+  while(i < (6*256/6))
+  {
+    out.color[i++] = current;
+    current.blue -= delta;
+  }
 }
 
 #endif /* _CHASE_H_ */
