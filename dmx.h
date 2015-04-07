@@ -43,7 +43,7 @@ protected:
   uint16_t _startChannel;
 
 public:
-  static const uint16_t channels = 512;
+  static const uint16_t channels = 514;
 
   Dmx(uint16_t startChannel) : _startChannel(startChannel) {}
   void begin(void);

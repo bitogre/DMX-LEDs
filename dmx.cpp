@@ -33,6 +33,8 @@
 
 #include "dmx.h"
 
+const int debugPin = 22;
+
 #define DMX_BAUD 250000
 #define DMX_DIV  (((F_CPU * 2) + (DMX_BAUD >> 1)) / DMX_BAUD)
 
@@ -63,19 +65,21 @@ DMAMEM uint8_t Dmx::rxDmaBuffer[Dmx::channels];
 
 void Dmx::begin(void)
 {
+  pinMode(debugPin, OUTPUT);
+
   SIM_SCGC4 |= SIM_SCGC4_UART0;	// turn on clock
   CORE_PIN0_CONFIG = PORT_PCR_PE | PORT_PCR_PS | PORT_PCR_PFE | PORT_PCR_MUX(3);
   CORE_PIN1_CONFIG = PORT_PCR_DSE | PORT_PCR_SRE | PORT_PCR_MUX(3);
   UART0_BDH = (DMX_DIV >> 13) & 0x1F;
   UART0_BDL = (DMX_DIV >>  5) & 0xFF;
-  UART0_C1 = UART_C1_ILT;// | UART_C1_M;
+  UART0_C1 = UART_C1_ILT | UART_C1_M;
   UART0_C2 = C2_TX_INACTIVE;
   UART0_C3 = C3_2STOP_BITS | C3_OEIE | C3_NEIE | C3_FEIE | C3_PEIE;
   UART0_C4 = DMX_DIV & 0x1F;
   UART0_C5 = C5_RDMAS;
   UART0_S2 = 0; //UART_S2_LBKDE | UART_S2_BRK13;
   UART0_TWFIFO = 2; // tx watermark, causes S1_TDRE to set
-  UART0_RWFIFO = 4; // rx watermark, causes S1_RDRF to set
+  UART0_RWFIFO = 1; // rx watermark, causes S1_RDRF to set
   UART0_PFIFO = UART_PFIFO_TXFE | UART_PFIFO_RXFE;
   attachInterruptVector(IRQ_UART0_STATUS, uartStatusIsr);
   attachInterruptVector(IRQ_UART0_ERROR, uartStatusIsr);
@@ -111,6 +115,7 @@ void Dmx::begin(void)
 void Dmx::dmaIsr(void)
 {
   dma.clearInterrupt();
+  digitalWrite(debugPin, LOW);
   __enable_irq();
   memcpy(rxBuffer, rxDmaBuffer, channels);
 }
@@ -127,6 +132,7 @@ void Dmx::uartStatusIsr(void)
     dma.TCD->CITER_ELINKNO = channels;
     dma.TCD->BITER_ELINKNO = channels;
     dma.enable();
+    digitalWrite(debugPin, HIGH);
   }
 
   if (s1 & UART_S1_IDLE) 

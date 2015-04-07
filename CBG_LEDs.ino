@@ -80,25 +80,17 @@ void setup() {
   leds.show();
 }
 
-#define RED    0xFF0000
-#define GREEN  0x00FF00
-#define BLUE   0x0000FF
-#define YELLOW 0xFFFF00
-#define PINK   0xFF1088
-#define ORANGE 0xE05800
-#define WHITE  0xFFFFFF
-
 unsigned long lastFft = 0;
 unsigned long lastOut = 0;
 
 void loop() 
 {
-  unsigned long time = millis();
+  unsigned long startTime = micros();
   if (fft.available()) 
   {
     Serial.print("FFT Ready ");
-    Serial.println(time - lastFft);
-    lastFft = time;
+    Serial.println(startTime - lastFft);
+    lastFft = startTime;
   }
   
   if (dmx.error())
@@ -109,17 +101,16 @@ void loop()
   }
   if (dmx.complete())
   {
-    unsigned long delta = time - lastOut;
+    unsigned long delta = startTime - lastOut;
     digitalWrite(ledPin, HIGH);
-    Serial.print("Start: ");
+    Serial.print("DMX ");
     Serial.println(delta);
-    dmx.dumpBuffer();
+    //dmx.dumpBuffer();
     leds.show();
-    lastOut = time;
-    delta = millis() - time;
-    Serial.print("end: ");
-    Serial.println(delta);
-    dmx.debugDma();
+    lastOut = startTime;
+    unsigned long procTime = micros() - startTime;
+    Serial.print("%CPU: ");
+    Serial.println((procTime * 100) / delta);
   }
   digitalWrite(ledPin, LOW);
 }
