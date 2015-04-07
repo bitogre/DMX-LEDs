@@ -127,36 +127,36 @@ void loop()
 
 void process(DmxData *data)
 {
-  FixedPoint<24> master = data->master;
+  FixedPoint<8> master = data->master;
   master /= 255;
-  FixedPoint<24> mix1 = data->mix;
+  FixedPoint<8> mix1 = data->mix;
   mix1 /= 255;
-  FixedPoint<24> mix2((uint8_t)1);
+  FixedPoint<8> mix2((uint8_t)1);
   mix2 -= mix1;
+  mix1 *= master;
+  mix2 *= master;
   
-  Chase<LEDS_PER_STRIP, NUM_STRIPS> fx1(data->fx1);
-  Chase<LEDS_PER_STRIP, NUM_STRIPS> fx2(data->fx2);
+  Chase<LEDS_PER_STRIP, NUM_STRIPS> fx1(data->fx1, mix1);
+  Chase<LEDS_PER_STRIP, NUM_STRIPS> fx2(data->fx2, mix2);
   
   for(int x = 0; x < NUM_STRIPS; ++x)
   {
     for(int y = 0; y < LEDS_PER_STRIP; ++y)
     {
-      ColorFP out = fx1.color(1,1) * mix1 + fx2.color(1,1) * mix2;
+      ColorFP out = fx1.color(1,1) + fx2.color(1,1);
       leds.setPixel(strip(x,y), offset(x,y), out.red, out.green, out.blue);
-//      leds.setPixel(strip(x,y), offset(x,y), x, y, x+y);
+      //leds.setPixel(strip(x,y), offset(x,y), x, y, x+y);
     }
   }
 }
 
 inline int strip(int x, int y)
 {
-  return x % 8;
+  return x & 0x07;
 }
 
 inline int offset(int x, int y)
 {
-  //Need the X / 8 truncated bfore next operation
-  uint8_t z = x / 8;
-  return y + z * LEDS_PER_STRIP;
+  return y + (x >> 8) * LEDS_PER_STRIP;
 }
 

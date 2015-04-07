@@ -82,9 +82,9 @@ public:
   template<typename T>
   ColorFP & operator /= (T val) { red /= val; green /= val; blue /= val; return *this; }
 
-  FixedPoint<24> red;
-  FixedPoint<24> green;
-  FixedPoint<24> blue;
+  FixedPoint<8> red;
+  FixedPoint<8> green;
+  FixedPoint<8> blue;
 };
 
 template<typename T1, typename T2>

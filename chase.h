@@ -46,16 +46,16 @@ private:
   Chase();
   
 public:
-  Chase(FX &setting) : period(setting.period + minPeriod), pos((uint8_t)1), off(setting.off), virtLeds((uint8_t)ledsPerStrip)  
+  Chase(FX &setting, FixedPoint<8> &level) : period(setting.period + minPeriod), pos((uint8_t)1), off(setting.off), virtLeds((uint8_t)ledsPerStrip)  
   {
     ColorFP priColor(setting.pri);
     ColorFP secColor(setting.sec);
-    aColor = priColor - secColor;
-    bColor = secColor;
+    aColor = (priColor - secColor) * level;
+    bColor = secColor * level;
     
     virtLeds /= (setting.mode & 0x0F) + 1;
     off /= 255;
-    pos /= 1<<16;
+    pos >>= 8;
     pos *= setting.pos;
     
     if (setting.period > periodThreshold)
@@ -72,10 +72,10 @@ private:
   ColorFP aColor;
   ColorFP bColor;
   uint16_t period;
-  FixedPoint<24> pos;
-  FixedPoint<24> off;
-  FixedPoint<24> rise;
-  FixedPoint<24> virtLeds;
+  FixedPoint<8> pos;
+  FixedPoint<8> off;
+  FixedPoint<8> rise;
+  FixedPoint<8> virtLeds;
 };
 
 #endif /* _CHASE_H_ */

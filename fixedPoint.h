@@ -34,7 +34,7 @@
 #ifndef _FIXED_POINT_H_
 #define _FIXED_POINT_H_
 
-template <int Q = 24>
+template <int Q = 8>
 class FixedPoint
 {
 public:
@@ -44,6 +44,7 @@ public:
 
   operator float() { return (float)val / (float)(1 << Q); }
   explicit operator uint8_t() { return val >> Q; }
+  uint16_t raw() { return val; }
   
   template<typename T>
   FixedPoint & operator += (T x) { val += x; return *this; }
@@ -53,9 +54,22 @@ public:
 
   template<typename T>
   FixedPoint & operator *= (T x) { val *= x; return *this; }
-  
+
   template<typename T>
   FixedPoint & operator /= (T x) { val /= x; return *this; }
+
+  template<typename T>
+  FixedPoint & operator >>= (T x) { val >>= x; return *this; }
+
+  FixedPoint & operator += (const FixedPoint &x)  { val += x.val; return *this; }
+  FixedPoint & operator -= (const FixedPoint &x)  { val -= x.val; return *this; }
+  
+  FixedPoint & operator *= (const FixedPoint &x) 
+  {
+    uint32_t tmp = (uint32_t)val * (uint32_t)x.val;
+    val = (uint16_t)(tmp >> Q);
+    return *this; 
+  }
 
 protected:
   uint16_t val;
