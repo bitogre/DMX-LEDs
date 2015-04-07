@@ -46,7 +46,7 @@ typedef struct __attribute__((packed))
 typedef struct __attribute__((packed))
 {
   uint8_t   mode;
-  uint16_t  pos;
+  uint8_t   pos;
   uint8_t   off;
   uint8_t   period;
   uint8_t   dutyCycle;
@@ -66,7 +66,7 @@ class ColorFP
 {
 public:
   ColorFP() {}
-  ColorFP(const DMX_Color &c) : red((uint8_t)(255 - c.cyan)), green((uint8_t)(255 - c.magenta)), blue((uint8_t)(255 - c.yellow)) {}
+  ColorFP(const DMX_Color &c) : red((int16_t)(255 - c.cyan)), green((int16_t)(255 - c.magenta)), blue((int16_t)(255 - c.yellow)) {}
   
   int color() { return OctoWS2811::color(uint8_t(red), uint8_t(green), uint8_t(blue)); }
   
@@ -82,9 +82,9 @@ public:
   template<typename T>
   ColorFP & operator /= (T val) { red /= val; green /= val; blue /= val; return *this; }
 
-  FixedPoint<8> red;
-  FixedPoint<8> green;
-  FixedPoint<8> blue;
+  FixedPoint red;
+  FixedPoint green;
+  FixedPoint blue;
 };
 
 template<typename T1, typename T2>
@@ -95,12 +95,5 @@ template<typename T1, typename T2>
 T1 operator * (const T1 &l, const T2 &r) { T1 temp(l); temp *= r; return temp; }
 template<typename T1, typename T2>
 T1 operator / (const T1 &l, const T2 &r) { T1 temp(l); temp /= r; return temp; }
-
-class IFXProc
-{
-public:
-  virtual ~IFXProc() {}
-  virtual ColorFP color(int x, int y) = 0;
-};
 
 #endif /* _CBG_DMX_H_ */

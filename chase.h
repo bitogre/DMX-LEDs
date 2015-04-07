@@ -37,45 +37,65 @@
 #include <OctoWS2811.h>
 #include "cbg_dmx.h"
 
-template <int ledsPerStrip, int numStrips>
-class Chase : public IFXProc
+class FXProc
 {
-private:
-  const int minPeriod = 2;
-  const int periodThreshold = ledsPerStrip - minPeriod;
-  Chase();
-  
 public:
-  Chase(FX &setting, FixedPoint<8> &level) : period(setting.period + minPeriod), pos((uint8_t)1), off(setting.off), virtLeds((uint8_t)ledsPerStrip)  
-  {
-    ColorFP priColor(setting.pri);
-    ColorFP secColor(setting.sec);
-    aColor = (priColor - secColor) * level;
-    bColor = secColor * level;
-    
-    virtLeds /= (setting.mode & 0x0F) + 1;
-    off /= 255;
-    pos >>= 8;
-    pos *= setting.pos;
-    
-    if (setting.period > periodThreshold)
-      period += (setting.period - periodThreshold) * int(virtLeds * (numStrips - 1)) / (255 - periodThreshold);
-  }
-  
-  virtual ColorFP color(int x, int y)
-  {
-    
-    return aColor;
-  }
-  
-private:
-  ColorFP aColor;
-  ColorFP bColor;
-  uint16_t period;
-  FixedPoint<8> pos;
-  FixedPoint<8> off;
-  FixedPoint<8> rise;
-  FixedPoint<8> virtLeds;
+  uint8_t startPos;
+  uint8_t stripOff;
+  FixedPoint pos;
+  FixedPoint inc;
+  ColorFP color[256];
 };
+
+void chaseTri(FX &setting, FixedPoint &level, FXProc &out)  
+{
+  ColorFP current(setting.pri);
+  ColorFP delta(setting.sec);
+  delta = (delta - current) * level;
+  current *= level;
+  ColorFP loopDelta(delta);
+  loopDelta /= setting.dutyCycle + 1;
+  
+  out.startPos = setting.pos;
+  out.stripOff = setting.off;
+  
+  out.inc = 256;
+  out.inc /= 2 + setting.period;
+  
+  int i = 0;
+  while(i < setting.dutyCycle)
+  {
+    out.color[i++] = current;
+    current += loopDelta;
+  }
+
+  loopDelta = delta / (setting.dutyCycle - 256);
+  while(i <= 255)
+  {
+    out.color[i++] = current;
+    current += loopDelta;
+  }
+}
+
+void chaseSquare(FX &setting, FixedPoint &level, FXProc &out)  
+{
+  ColorFP priColor(setting.pri);
+  ColorFP secColor(setting.sec);
+  priColor *= level;
+  secColor *= level;
+  
+  out.startPos = setting.pos;
+  out.stripOff = setting.off;
+  
+  out.inc = 256;
+  out.inc /= 2 + setting.period;
+  
+  int i = 0;
+  while(i < setting.dutyCycle)
+    out.color[i++] = priColor;
+
+  while(i <= 255)
+    out.color[i++] = secColor;
+}
 
 #endif /* _CHASE_H_ */

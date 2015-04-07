@@ -119,33 +119,39 @@ void loop()
     unsigned long procTime = micros() - startTime;
     Serial.print("D3 ");
     Serial.println(procTime);
-    Serial.print("%CPU: ");
-    Serial.println((procTime * 100) / delta);
+    //Serial.print("%CPU: ");
+    //Serial.println((procTime * 100) / delta);
   }
   digitalWrite(ledPin, LOW);
 }
 
 void process(DmxData *data)
 {
-  FixedPoint<8> master = data->master;
+  static FXProc fx1;
+  static FXProc fx2;
+  
+  FixedPoint master = data->master;
   master /= 255;
-  FixedPoint<8> mix1 = data->mix;
+  FixedPoint mix1 = data->mix;
   mix1 /= 255;
-  FixedPoint<8> mix2((uint8_t)1);
+  FixedPoint mix2((int16_t)1);
   mix2 -= mix1;
   mix1 *= master;
   mix2 *= master;
   
-  Chase<LEDS_PER_STRIP, NUM_STRIPS> fx1(data->fx1, mix1);
-  Chase<LEDS_PER_STRIP, NUM_STRIPS> fx2(data->fx2, mix2);
+  chaseTri(data->fx1, mix1, fx1);
+  chaseSquare(data->fx2, mix2, fx2);
   
   for(int x = 0; x < NUM_STRIPS; ++x)
   {
+    fx1.pos = fx1.startPos + fx1.stripOff * x;
+    fx2.pos = fx2.startPos + fx1.stripOff * x;
     for(int y = 0; y < LEDS_PER_STRIP; ++y)
     {
-      ColorFP out = fx1.color(1,1) + fx2.color(1,1);
+      ColorFP out = fx1.color[uint8_t(fx1.pos)] + fx2.color[uint8_t(fx2.pos)];
       leds.setPixel(strip(x,y), offset(x,y), out.red, out.green, out.blue);
-      //leds.setPixel(strip(x,y), offset(x,y), x, y, x+y);
+      fx1.pos += fx1.inc;
+      fx2.pos += fx2.inc;
     }
   }
 }

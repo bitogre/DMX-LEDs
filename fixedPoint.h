@@ -34,23 +34,21 @@
 #ifndef _FIXED_POINT_H_
 #define _FIXED_POINT_H_
 
-template <int Q = 8>
+#define Q 22
+
 class FixedPoint
 {
 public:
   FixedPoint() : val(0) {}
-  FixedPoint(uint8_t x) : val(x << Q) {}
+  FixedPoint(int16_t x) : val(x << Q) {}
   explicit FixedPoint(float x) : val(x * (1 << Q)) {}
 
   operator float() { return (float)val / (float)(1 << Q); }
-  explicit operator uint8_t() { return val >> Q; }
-  uint16_t raw() { return val; }
+  explicit operator uint8_t() { return (val >> Q) & 0x00FF; }
+  int32_t raw() { return val; }
   
-  template<typename T>
-  FixedPoint & operator += (T x) { val += x; return *this; }
-
-  template<typename T>
-  FixedPoint & operator -= (T x) { val -= x; return *this; }
+  FixedPoint & operator += (int8_t x) { val += ((int32_t)x) << Q; return *this; }
+  FixedPoint & operator -= (int8_t x) { val -= ((int32_t)x) << Q; return *this; }
 
   template<typename T>
   FixedPoint & operator *= (T x) { val *= x; return *this; }
@@ -66,13 +64,13 @@ public:
   
   FixedPoint & operator *= (const FixedPoint &x) 
   {
-    uint32_t tmp = (uint32_t)val * (uint32_t)x.val;
-    val = (uint16_t)(tmp >> Q);
-    return *this; 
+    val >>= Q / 2;
+    val *= x.val >> (Q / 2);
+    return *this;
   }
 
 protected:
-  uint16_t val;
+  int32_t val;
 };
 
 #endif /* _FIXED_POINT_H_ */
