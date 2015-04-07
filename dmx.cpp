@@ -137,13 +137,12 @@ void Dmx::uartStatusIsr(void)
 
   if (s1 & UART_S1_IDLE) 
   {
-    //Serial.println(" __IDLE__");
+    Serial.println(" __IDLE__");
     dma.disable();
   }
 
   if (s1 & (UART_S1_RDRF | UART_S1_IDLE)) 
   {
-    __disable_irq();
     avail = UART0_RCFIFO;
     if (avail == 0) 
     {
@@ -164,11 +163,9 @@ void Dmx::uartStatusIsr(void)
       // which won't be simple, since we already manage
       // which transmit interrupts are enabled.
       UART0_CFIFO = UART_CFIFO_RXFLUSH;
-      __enable_irq();
     } 
     else 
     {
-      __enable_irq();
       _dumped += avail;
       do {
         c = UART0_D;

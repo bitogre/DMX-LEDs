@@ -41,8 +41,10 @@
 #include <SPI.h>
 #include <SD.h>
 #include "dmx.h"
+#include "cbg_dmx.h"
+#include "chase.h"
 
-#define DMX_ADDR        0
+#define DMX_ADDR        1
 #define LEDS_PER_STRIP  120
 #define NUM_STRIPS      16
 
@@ -51,8 +53,8 @@
 #endif
 
 const int ledsPerPin = LEDS_PER_STRIP * NUM_STRIPS / 8;
-const int bufSize = LEDS_PER_STRIP * NUM_STRIPS * 3;
-const int arraySize = bufSize / sizeof(int);
+const int bufSize    = LEDS_PER_STRIP * NUM_STRIPS * 3;
+const int arraySize  = bufSize / sizeof(int);
 
 DMAMEM int displayMemory[arraySize];
 int drawingMemory[arraySize];
@@ -60,7 +62,7 @@ int drawingMemory[arraySize];
 const int config = WS2811_GRB | WS2811_800kHz;
 const int ledPin = 13;
 
-Dmx dmx(DMX_ADDR);
+Dmx dmx;
 OctoWS2811 leds(ledsPerPin, displayMemory, drawingMemory, config);
 
 // Audio library objects
@@ -96,22 +98,65 @@ void loop()
   if (dmx.error())
   {
     digitalWrite(ledPin, HIGH);
-    Serial.println(" >> ERROR << ");
+    Serial.println(" >> DMX ERROR << ");
     dmx.debugDma();
   }
+  
   if (dmx.complete())
   {
     unsigned long delta = startTime - lastOut;
     digitalWrite(ledPin, HIGH);
     Serial.print("DMX ");
     Serial.println(delta);
-    //dmx.dumpBuffer();
+    process((DmxData *)&dmx.rxBuffer[1 + DMX_ADDR]);
+    unsigned long d2 = micros() - startTime;
+    Serial.print("D2 ");
+    Serial.println(d2);
     leds.show();
+    digitalWrite(ledPin, LOW);
+    //dmx.dumpBuffer();
     lastOut = startTime;
     unsigned long procTime = micros() - startTime;
+    Serial.print("D3 ");
+    Serial.println(procTime);
     Serial.print("%CPU: ");
     Serial.println((procTime * 100) / delta);
   }
   digitalWrite(ledPin, LOW);
+}
+
+void process(DmxData *data)
+{
+  FixedPoint<24> master = data->master;
+  master /= 255;
+  FixedPoint<24> mix1 = data->mix;
+  mix1 /= 255;
+  FixedPoint<24> mix2((uint8_t)1);
+  mix2 -= mix1;
+  
+  Chase<LEDS_PER_STRIP, NUM_STRIPS> fx1(data->fx1);
+  Chase<LEDS_PER_STRIP, NUM_STRIPS> fx2(data->fx2);
+  
+  for(int x = 0; x < NUM_STRIPS; ++x)
+  {
+    for(int y = 0; y < LEDS_PER_STRIP; ++y)
+    {
+      ColorFP out = fx1.color(1,1) * mix1 + fx2.color(1,1) * mix2;
+      leds.setPixel(strip(x,y), offset(x,y), out.red, out.green, out.blue);
+//      leds.setPixel(strip(x,y), offset(x,y), x, y, x+y);
+    }
+  }
+}
+
+inline int strip(int x, int y)
+{
+  return x % 8;
+}
+
+inline int offset(int x, int y)
+{
+  //Need the X / 8 truncated bfore next operation
+  uint8_t z = x / 8;
+  return y + z * LEDS_PER_STRIP;
 }
 

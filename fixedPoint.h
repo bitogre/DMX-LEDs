@@ -1,4 +1,4 @@
-/*  DMX Slave
+/*  Fixed Point Code
  *  Copyright (c) 2014 Devin Crumb, Church by the Glades (cbglades.com)
  *   
  * Based on serial1.c in the Teensyduino Core Library converted to use DMA
@@ -31,80 +31,34 @@
  * SOFTWARE.
  */
 
-#ifndef _TEENSY_DMA_DMX_H_
-#define _TEENSY_DMA_DMX_H_
+#ifndef _FIXED_POINT_H_
+#define _FIXED_POINT_H_
 
-#include <Arduino.h>
-#include "DMAChannel.h"
-
-class Dmx
+template <int Q = 24>
+class FixedPoint
 {
 public:
-  static const uint16_t channels = 514;
+  FixedPoint() : val(0) {}
+  FixedPoint(uint8_t x) : val(x << Q) {}
+  explicit FixedPoint(float x) : val(x * (1 << Q)) {}
 
-  void begin(void);
+  operator float() { return (float)val / (float)(1 << Q); }
+  explicit operator uint8_t() { return val >> Q; }
   
-  static void debugDma()
-  {
-    Serial.print("DMA");
-    Serial.print(dma.channel);
-    Serial.print(": ");
-    uint8_t *p = (uint8_t *)dma.TCD;
-    for (unsigned i = 0; i < sizeof(DMAChannel::TCD_t); ++i)
-    {
-      Serial.print(p[i], HEX);
-      Serial.print(' ');
-    }
-  }
-  
-  void dumpBuffer()
-  {
-    Serial.println(dumped());
-    for (int i = 0; i < channels; ++i)
-    {
-      Serial.print(rxBuffer[i], HEX);
-      Serial.print(' ');
-      if (((i + 1) & 0x3F) == 0)
-        Serial.println();
-    }
-  }
-  
-  static uint16_t _dumped;
-  uint16_t dumped()
-  {
-    __disable_irq();
-    uint16_t ret = _dumped;
-    _dumped = 0;
-    __enable_irq();
-    return ret;
-  }
-  
-  bool complete()
-  {
-    if (!dma.complete())
-      return false;
+  template<typename T>
+  FixedPoint & operator += (T x) { val += x; return *this; }
 
-    dma.clearComplete();
-    return true;
-  }
+  template<typename T>
+  FixedPoint & operator -= (T x) { val -= x; return *this; }
 
-  bool error()
-  {
-    if (!dma.error())
-      return false;
-
-    dma.clearError();
-    return true;
-  }
-
-  static uint8_t rxBuffer[channels];
-private:
-  static DMAChannel dma;
-  static DMASetting nextDma;
-  static DMAMEM uint8_t rxDmaBuffer[channels];
+  template<typename T>
+  FixedPoint & operator *= (T x) { val *= x; return *this; }
   
-  static void dmaIsr(void);
-  static void uartStatusIsr(void);
+  template<typename T>
+  FixedPoint & operator /= (T x) { val /= x; return *this; }
+
+protected:
+  uint16_t val;
 };
 
-#endif /* _TEENSY_DMX_H_ */
+#endif /* _FIXED_POINT_H_ */

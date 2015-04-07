@@ -31,80 +31,51 @@
  * SOFTWARE.
  */
 
-#ifndef _TEENSY_DMA_DMX_H_
-#define _TEENSY_DMA_DMX_H_
+#ifndef _CHASE_H_
+#define _CHASE_H_
 
-#include <Arduino.h>
-#include "DMAChannel.h"
+#include <OctoWS2811.h>
+#include "cbg_dmx.h"
 
-class Dmx
+template <int ledsPerStrip, int numStrips>
+class Chase : public IFXProc
 {
-public:
-  static const uint16_t channels = 514;
-
-  void begin(void);
-  
-  static void debugDma()
-  {
-    Serial.print("DMA");
-    Serial.print(dma.channel);
-    Serial.print(": ");
-    uint8_t *p = (uint8_t *)dma.TCD;
-    for (unsigned i = 0; i < sizeof(DMAChannel::TCD_t); ++i)
-    {
-      Serial.print(p[i], HEX);
-      Serial.print(' ');
-    }
-  }
-  
-  void dumpBuffer()
-  {
-    Serial.println(dumped());
-    for (int i = 0; i < channels; ++i)
-    {
-      Serial.print(rxBuffer[i], HEX);
-      Serial.print(' ');
-      if (((i + 1) & 0x3F) == 0)
-        Serial.println();
-    }
-  }
-  
-  static uint16_t _dumped;
-  uint16_t dumped()
-  {
-    __disable_irq();
-    uint16_t ret = _dumped;
-    _dumped = 0;
-    __enable_irq();
-    return ret;
-  }
-  
-  bool complete()
-  {
-    if (!dma.complete())
-      return false;
-
-    dma.clearComplete();
-    return true;
-  }
-
-  bool error()
-  {
-    if (!dma.error())
-      return false;
-
-    dma.clearError();
-    return true;
-  }
-
-  static uint8_t rxBuffer[channels];
 private:
-  static DMAChannel dma;
-  static DMASetting nextDma;
-  static DMAMEM uint8_t rxDmaBuffer[channels];
+  const int minPeriod = 2;
+  const int periodThreshold = ledsPerStrip - minPeriod;
+  Chase();
   
-  static void dmaIsr(void);
-  static void uartStatusIsr(void);
+public:
+  Chase(FX &setting) : period(setting.period + minPeriod), pos((uint8_t)1), off(setting.off), virtLeds((uint8_t)ledsPerStrip)  
+  {
+    ColorFP priColor(setting.pri);
+    ColorFP secColor(setting.sec);
+    aColor = priColor - secColor;
+    bColor = secColor;
+    
+    virtLeds /= (setting.mode & 0x0F) + 1;
+    off /= 255;
+    pos /= 1<<16;
+    pos *= setting.pos;
+    
+    if (setting.period > periodThreshold)
+      period += (setting.period - periodThreshold) * int(virtLeds * (numStrips - 1)) / (255 - periodThreshold);
+  }
+  
+  virtual ColorFP color(int x, int y)
+  {
+    
+    return aColor;
+  }
+  
+private:
+  ColorFP aColor;
+  ColorFP bColor;
+  uint16_t period;
+  FixedPoint<24> pos;
+  FixedPoint<24> off;
+  FixedPoint<24> rise;
+  FixedPoint<24> virtLeds;
 };
 
-#endif /* _TEENSY_DMX_H_ */
+#endif /* _CHASE_H_ */
