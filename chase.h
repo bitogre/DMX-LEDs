@@ -41,25 +41,43 @@ class FXProc
 {
 public:
   uint8_t startPos[NUM_STRIPS];
-  FixedPoint pos;
+  uint16_t pos;
   FixedPoint inc;
+  FixedPoint currPos;
   ColorFP color[256];
   uint16_t revPerLeds;
   uint16_t revAt;
   bool revStrip;
 };
 
+inline uint8_t chaseStartPos(int x, FX &setting, FXProc &out)
+{
+  uint16_t pos = (out.pos >> 2) + x * setting.off;
+  if ((setting.mode & MODE_BOUNCE) && (pos & 0x0100))
+    pos = 0x00ff - (pos & 0x00ff);
+  return pos;
+}
+
 void chase(FX &setting, FXProc &out)
 {
+  if (setting.pos & 0x80)
+    out.pos += (uint16_t)((int8_t)setting.pos - (int8_t)0xC0);
+  else
+    out.pos = setting.pos << 3;
+
   if (setting.mode & MODE_CEMETRIC)
   {
     for (int x = 0; x < (NUM_STRIPS/2); ++x)
-      out.startPos[(NUM_STRIPS/2) + x] = out.startPos[(NUM_STRIPS/2) - 1 - x] = setting.pos + x * setting.off;
+    {
+      out.startPos[(NUM_STRIPS/2) + x] = out.startPos[(NUM_STRIPS/2) - 1 - x] = chaseStartPos(x, setting, out);
+    }
   }
   else
   {
     for (int x = 0; x < NUM_STRIPS; ++x)
-      out.startPos[x] = setting.pos + x * setting.off;
+    {
+      out.startPos[x] = chaseStartPos(x, setting, out);
+    }
   }
 
   out.inc = 256;
@@ -85,17 +103,17 @@ void chaseTri(FX &setting, FixedPoint &level, FXProc &out)
   loopDelta /= setting.dutyCycle + 1;
   
   int i = 0;
-  while(i < setting.dutyCycle)
+  while(i <= setting.dutyCycle)
   {
     out.color[i++] = current;
     current += loopDelta;
   }
 
-  loopDelta = delta / (setting.dutyCycle - 256);
+  loopDelta = delta / (256 - setting.dutyCycle);
   while(i <= 255)
   {
     out.color[i++] = current;
-    current += loopDelta;
+    current -= loopDelta;
   }
 }
 
@@ -116,13 +134,15 @@ void chaseSquare(FX &setting, FixedPoint &level, FXProc &out)
     out.color[i++] = secColor;
 }
 
-void chaseRainbow(FX &setting, FixedPoint &level, FXProc &out)  
+void chaseRainbow(FX &setting, FixedPoint &lvl, FXProc &out)  
 {
   chase(setting, out);
   
   ColorFP current;
+  FixedPoint level(lvl);
   FixedPoint delta(level);
-  delta /= 6;
+  level *= 255;
+  delta *= 6;
   
   int i = 0;
   current.red   = level;

@@ -107,18 +107,13 @@ void loop()
     Serial.print("DMX ");
     Serial.println(delta);
     process((DmxData *)&dmx.rxBuffer[1 + DMX_ADDR]);
-    unsigned long d2 = micros() - startTime;
-    Serial.print("D2 ");
-    Serial.println(d2);
     leds.show();
     digitalWrite(ledPin, LOW);
     //dmx.dumpBuffer();
     lastOut = startTime;
     unsigned long procTime = micros() - startTime;
-    Serial.print("D3 ");
+    Serial.print("Proc Time ");
     Serial.println(procTime);
-    //Serial.print("%CPU: ");
-    //Serial.println((procTime * 100) / delta);
   }
   digitalWrite(ledPin, LOW);
 }
@@ -157,16 +152,19 @@ void process(DmxData *data)
   
   for(int x = 0; x < NUM_STRIPS; ++x)
   {
-    fx[0].pos = fx[0].startPos[x];
-    fx[1].pos = fx[1].startPos[x];
+    fx[0].currPos = fx[0].startPos[x];
+    fx[1].currPos = fx[1].startPos[x];
     fx[0].revAt = fx[0].revPerLeds;
     fx[1].revAt = fx[1].revPerLeds;
+    int str = strip(x,0) & 0x07;
+    int baseOff = offset(x,0);
+    
     for(int y = 0; y < LEDS_PER_STRIP; ++y)
     {
-      ColorFP out = fx[0].color[uint8_t(fx[0].pos)] + fx[1].color[uint8_t(fx[1].pos)];
-      leds.setPixel(strip(x,y), offset(x,y), out.red, out.green, out.blue);
-      fx[0].pos += fx[0].inc;
-      fx[1].pos += fx[1].inc;
+      ColorFP out = fx[0].color[uint8_t(fx[0].currPos)] + fx[1].color[uint8_t(fx[1].currPos)];
+      leds.setPixel(str, baseOff+y, out.red, out.green, out.blue);
+      fx[0].currPos += fx[0].inc;
+      fx[1].currPos += fx[1].inc;
       if (y >= fx[0].revAt)
       {
         fx[0].inc *= -1;
@@ -187,11 +185,16 @@ void process(DmxData *data)
 
 inline int strip(int x, int y)
 {
-  return x & 0x07;
+  int xCenter = x - NUM_STRIPS/2 + 1;
+  if (xCenter <= 0)
+      return ((-xCenter) & 3) + (((-xCenter) & ~3) << 1);
+
+  --xCenter;
+  return (xCenter & 3) + 4 + ((xCenter & ~3) << 1);
 }
 
 inline int offset(int x, int y)
 {
-  return y + (x >> 8) * LEDS_PER_STRIP;
+  return y + (strip(x,y) >> 3) * LEDS_PER_STRIP;
 }
 
